@@ -254,6 +254,7 @@ export function Settings() {
                           navigator.clipboard.writeText(org.id);
                           showToast('Copied');
                         }}
+                        title="Copy Organization ID"
                       >
                         <Copy className="w-4 h-4" />
                       </Button>
@@ -302,6 +303,7 @@ export function Settings() {
                             type="button"
                             onClick={() => setShowAnthropicKey(!showAnthropicKey)}
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                            title={showAnthropicKey ? 'Hide API key' : 'Show API key'}
                           >
                             {showAnthropicKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
@@ -328,6 +330,7 @@ export function Settings() {
                             type="button"
                             onClick={() => setShowOpenaiKey(!showOpenaiKey)}
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                            title={showOpenaiKey ? 'Hide API key' : 'Show API key'}
                           >
                             {showOpenaiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
@@ -354,6 +357,7 @@ export function Settings() {
                             type="button"
                             onClick={() => setShowDeepseekKey(!showDeepseekKey)}
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                            title={showDeepseekKey ? 'Hide API key' : 'Show API key'}
                           >
                             {showDeepseekKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
@@ -519,6 +523,7 @@ export function Settings() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleCopyInviteLink(invite)}
+                            title="Copy invite link"
                           >
                             {copiedInvite === invite.id ? (
                               <Check className="w-4 h-4 text-green-500" />
@@ -531,6 +536,7 @@ export function Settings() {
                             size="sm"
                             onClick={() => handleDeleteInvite(invite)}
                             className="text-red-500 hover:bg-red-50"
+                            title="Cancel invitation"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>

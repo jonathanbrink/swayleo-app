@@ -118,29 +118,34 @@ export const getUserOrganizations = async (): Promise<Organization[]> => {
 // ============================================
 
 export const getOrganizationMembers = async (orgId: string): Promise<OrganizationMember[]> => {
-  const { data, error } = await supabase
+  // Get members first
+  const { data: members, error } = await supabase
     .from('organization_members')
-    .select(`
-      *,
-      user:profiles!organization_members_user_id_fkey(
-        id,
-        full_name
-      )
-    `)
+    .select('*')
     .eq('org_id', orgId)
     .order('joined_at', { ascending: true });
 
   if (error) throw error;
+  if (!members?.length) return [];
 
-  // Get emails from auth (need to match with user_id)
+  // Get profiles for these members
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', members.map(m => m.user_id));
+
+  const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+  // Get current user for email display
   const { data: { user } } = await supabase.auth.getUser();
   
-  return (data || []).map(member => ({
+  return members.map(member => ({
     ...member,
-    user: member.user ? {
-      ...member.user,
-      email: member.user_id === user?.id ? (user?.email || 'Unknown') : `${member.user.full_name || 'User'}@...`
-    } : undefined
+    user: {
+      id: member.user_id,
+      full_name: profileMap.get(member.user_id)?.full_name || 'Unknown',
+      email: member.user_id === user?.id ? (user?.email || 'Unknown') : '...'
+    }
   }));
 };
 
@@ -189,10 +194,7 @@ export const getCurrentUserRole = async (orgId: string): Promise<string | null> 
 export const getInvitations = async (orgId: string): Promise<Invitation[]> => {
   const { data, error } = await supabase
     .from('invitations')
-    .select(`
-      *,
-      inviter:profiles!invitations_invited_by_fkey(full_name)
-    `)
+    .select('*')
     .eq('org_id', orgId)
     .is('accepted_at', null)
     .gt('expires_at', new Date().toISOString())
