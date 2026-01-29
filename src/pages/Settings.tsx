@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Building2, Users, Mail, Shield, Crown, UserMinus, 
-  Copy, Check, Trash2, Plus, Clock, CreditCard, Zap, Sparkles, Key, Eye, EyeOff, User, Camera
+  Copy, Check, Trash2, Plus, Clock, CreditCard, Zap, Sparkles, Key, Eye, EyeOff, User, Camera, Send
 } from 'lucide-react';
 import { Button, Input, Modal, Select, useToast } from '../components/ui';
 import { UsageBar, UpgradeModal } from '../components/billing';
@@ -13,8 +13,10 @@ import {
   useInvitations,
   useCreateInvitation,
   useDeleteInvitation,
+  useResendInvitation,
   useUpdateMemberRole,
   useRemoveMember,
+  useTransferOwnership,
   useAuth,
   useSubscription,
   useUsageSummary,
@@ -39,16 +41,26 @@ export function Settings() {
   const updateOrg = useUpdateOrganization();
   const createInvite = useCreateInvitation();
   const deleteInvite = useDeleteInvitation();
+  const resendInvite = useResendInvitation();
   const updateRole = useUpdateMemberRole();
   const removeMember = useRemoveMember();
+  const transferOwnership = useTransferOwnership();
   const createPortal = useCreatePortalSession();
 
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', confirmText: '', onConfirm: () => {} });
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
   const [copiedInvite, setCopiedInvite] = useState<string | null>(null);
+  const [resendingInvite, setResendingInvite] = useState<string | null>(null);
   const [orgName, setOrgName] = useState('');
   
   // Profile state
@@ -171,15 +183,35 @@ export function Settings() {
     setTimeout(() => setCopiedInvite(null), 2000);
   };
 
-  const handleDeleteInvite = async (invitation: Invitation) => {
+  const handleDeleteInvite = (invitation: Invitation) => {
     if (!org) return;
-    if (!window.confirm(`Cancel invitation to ${invitation.email}?`)) return;
+    
+    setConfirmModal({
+      isOpen: true,
+      title: 'Cancel Invitation',
+      message: `Are you sure you want to cancel the invitation to ${invitation.email}?`,
+      confirmText: 'Cancel Invitation',
+      onConfirm: async () => {
+        try {
+          await deleteInvite.mutateAsync({ invitationId: invitation.id, orgId: org.id });
+          showToast('Invitation cancelled');
+        } catch {
+          showToast('Failed to cancel invitation', 'error');
+        }
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
 
+  const handleResendInvite = async (invitation: Invitation) => {
+    setResendingInvite(invitation.id);
     try {
-      await deleteInvite.mutateAsync({ invitationId: invitation.id, orgId: org.id });
-      showToast('Invitation cancelled');
+      await resendInvite.mutateAsync(invitation);
+      showToast('Invitation email sent');
     } catch {
-      showToast('Failed to cancel invitation', 'error');
+      showToast('Failed to send invitation email', 'error');
+    } finally {
+      setResendingInvite(null);
     }
   };
 
@@ -194,16 +226,47 @@ export function Settings() {
     }
   };
 
-  const handleRemoveMember = async (member: OrganizationMember) => {
+  const handleRemoveMember = (member: OrganizationMember) => {
     if (!org) return;
-    if (!window.confirm(`Remove ${member.user?.full_name || 'this member'} from the organization?`)) return;
+    const memberName = member.user?.full_name || member.user?.email || 'this member';
+    
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Member',
+      message: `Are you sure you want to remove ${memberName} from the organization? They will lose access immediately.`,
+      confirmText: 'Remove',
+      onConfirm: async () => {
+        try {
+          await removeMember.mutateAsync({ memberId: member.id, orgId: org.id });
+          showToast('Member removed');
+        } catch {
+          showToast('Failed to remove member', 'error');
+        }
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
 
-    try {
-      await removeMember.mutateAsync({ memberId: member.id, orgId: org.id });
-      showToast('Member removed');
-    } catch {
-      showToast('Failed to remove member', 'error');
-    }
+  const handleTransferOwnership = (member: OrganizationMember) => {
+    if (!org) return;
+    const memberName = member.user?.full_name || member.user?.email || 'this member';
+    
+    setConfirmModal({
+      isOpen: true,
+      title: 'Transfer Ownership',
+      message: `Are you sure you want to transfer ownership to ${memberName}? You will become an admin and cannot undo this action.`,
+      confirmText: 'Transfer',
+      onConfirm: async () => {
+        try {
+          await transferOwnership.mutateAsync({ orgId: org.id, newOwnerId: member.user_id });
+          showToast('Ownership transferred');
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Failed to transfer ownership';
+          showToast(message, 'error');
+        }
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      },
+    });
   };
 
   const handleManageBilling = async () => {
@@ -560,10 +623,7 @@ export function Settings() {
               {/* Members Section */}
               <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                  <div>
-                    <h2 className="font-semibold text-slate-800">Team Members</h2>
-                    <p className="text-sm text-slate-500">{members.length} member(s)</p>
-                  </div>
+                  <h2 className="font-semibold text-slate-800">Team Members: {members.length}</h2>
                   {isAdmin && (
                     <Button onClick={() => setShowInviteModal(true)} size="sm">
                       <Plus className="w-4 h-4" />
@@ -587,61 +647,83 @@ export function Settings() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {members.map((member) => (
-                        <tr key={member.id} className="hover:bg-slate-50">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                                <span className="text-sm font-medium text-slate-600">
-                                  {member.user?.full_name?.charAt(0) || 'U'}
-                                </span>
-                              </div>
-                              <div>
-                                <p className="font-medium text-slate-800">
-                                  {member.user?.full_name || 'Unknown'}
-                                  {member.user_id === user?.id && (
-                                    <span className="ml-2 text-xs text-slate-400">(you)</span>
-                                  )}
-                                </p>
-                                <p className="text-sm text-slate-500">{member.user?.email}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              {getRoleIcon(member.role)}
-                              {isAdmin && member.role !== 'owner' && member.user_id !== user?.id ? (
-                                <select
-                                  value={member.role}
-                                  onChange={(e) => handleRoleChange(member, e.target.value as 'admin' | 'member')}
-                                  className="text-sm bg-transparent border-0 cursor-pointer text-slate-700 focus:outline-none"
-                                >
-                                  <option value="admin">Admin</option>
-                                  <option value="member">Member</option>
-                                </select>
-                              ) : (
-                                <span className="text-sm text-slate-700 capitalize">{member.role}</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-slate-500">
-                            {new Date(member.joined_at).toLocaleDateString()}
-                          </td>
-                          {isAdmin && (
+                      {members.map((member) => {
+                        const isOwner = currentRole === 'owner';
+                        const isSelf = member.user_id === user?.id;
+                        const memberName = member.user?.full_name || member.user?.email || 'Unknown';
+                        const memberInitial = member.user?.full_name?.charAt(0) || member.user?.email?.charAt(0)?.toUpperCase() || 'U';
+                        
+                        return (
+                          <tr key={member.id} className="hover:bg-slate-50">
                             <td className="px-6 py-4">
-                              {member.role !== 'owner' && member.user_id !== user?.id && (
-                                <button
-                                  onClick={() => handleRemoveMember(member)}
-                                  className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                  title="Remove member"
-                                >
-                                  <UserMinus className="w-4 h-4" />
-                                </button>
-                              )}
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                                  <span className="text-sm font-medium text-slate-600">
+                                    {memberInitial}
+                                  </span>
+                                </div>
+                                <div>
+                                  <p className="font-medium text-slate-800">
+                                    {memberName}
+                                    {isSelf && (
+                                      <span className="ml-2 text-xs text-slate-400">(you)</span>
+                                    )}
+                                  </p>
+                                  {member.user?.full_name && member.user?.email && (
+                                    <p className="text-sm text-slate-500">{member.user.email}</p>
+                                  )}
+                                </div>
+                              </div>
                             </td>
-                          )}
-                        </tr>
-                      ))}
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                {getRoleIcon(member.role)}
+                                {isAdmin && member.role !== 'owner' && !isSelf ? (
+                                  <select
+                                    value={member.role}
+                                    onChange={(e) => handleRoleChange(member, e.target.value as 'admin' | 'member')}
+                                    className="text-sm bg-transparent border-0 cursor-pointer text-slate-700 focus:outline-none"
+                                  >
+                                    <option value="admin">Admin</option>
+                                    <option value="member">Member</option>
+                                  </select>
+                                ) : (
+                                  <span className="text-sm text-slate-700 capitalize">{member.role}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-slate-500">
+                              {new Date(member.joined_at).toLocaleDateString()}
+                            </td>
+                            {isAdmin && (
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-1">
+                                  {/* Transfer ownership - only owner can do this, and not to themselves */}
+                                  {isOwner && !isSelf && member.role !== 'owner' && (
+                                    <button
+                                      onClick={() => handleTransferOwnership(member)}
+                                      className="p-2 rounded-lg text-amber-500 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                                      title="Transfer ownership"
+                                    >
+                                      <Crown className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {/* Remove member - owner can remove anyone except themselves */}
+                                  {!isSelf && member.role !== 'owner' && (
+                                    <button
+                                      onClick={() => handleRemoveMember(member)}
+                                      className="p-2 rounded-lg text-red-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                      title="Remove member"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
@@ -651,8 +733,7 @@ export function Settings() {
               {isAdmin && invitations.length > 0 && (
                 <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
                   <div className="px-6 py-4 border-b border-slate-100">
-                    <h2 className="font-semibold text-slate-800">Pending Invitations</h2>
-                    <p className="text-sm text-slate-500">{invitations.length} pending</p>
+                    <h2 className="font-semibold text-slate-800">Pending Invitations: {invitations.length}</h2>
                   </div>
 
                   <div className="divide-y divide-slate-100">
@@ -673,6 +754,15 @@ export function Settings() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleResendInvite(invite)}
+                            title="Resend invitation email"
+                            loading={resendingInvite === invite.id}
+                          >
+                            <Send className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -945,6 +1035,33 @@ export function Settings() {
         orgId={org.id}
         currentTier={currentTier}
       />
+
+      {/* Confirm Modal */}
+      <Modal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        title={confirmModal.title}
+        size="sm"
+      >
+        <div className="space-y-6">
+          <p className="text-slate-600">{confirmModal.message}</p>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmModal.onConfirm}
+              className="flex-1 bg-red-500 hover:bg-red-600"
+            >
+              {confirmModal.confirmText}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

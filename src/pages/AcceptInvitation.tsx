@@ -13,43 +13,40 @@ export function AcceptInvitation() {
   const { data: invitation, isLoading, error } = useInvitationByToken(token || '');
   const acceptInvite = useAcceptInvitation();
   const [accepted, setAccepted] = useState(false);
+  const [autoAccepting, setAutoAccepting] = useState(false);
 
-  const handleAccept = async () => {
-    if (!token) return;
+  // Check if email matches
+  const emailMatches = Boolean(user?.email && invitation?.email && user.email.toLowerCase() === invitation.email.toLowerCase());
+  const emailMismatch = Boolean(user?.email && invitation?.email && user.email.toLowerCase() !== invitation.email.toLowerCase());
 
-    try {
-      await acceptInvite.mutateAsync(token);
-      setAccepted(true);
-      showToast('You\'ve joined the organization!');
-      
-      // Redirect to dashboard after a moment
-      setTimeout(() => {
-        navigate('/');
-      }, 2000);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to accept invitation';
-      showToast(message, 'error');
-    }
-  };
+  // Auto-accept if logged in and email matches
+  useEffect(() => {
+    const autoAccept = async () => {
+      if (isAuthenticated && emailMatches && invitation && !accepted && !autoAccepting) {
+        setAutoAccepting(true);
+        try {
+          await acceptInvite.mutateAsync(token!);
+          showToast(`Welcome to ${invitation.organization?.name || 'the team'}!`);
+          navigate('/');
+        } catch (err) {
+          setAutoAccepting(false);
+          console.error('Failed to auto-accept:', err);
+        }
+      }
+    };
+    
+    autoAccept();
+  }, [isAuthenticated, emailMatches, invitation, accepted, autoAccepting]);
 
-  // Auto-redirect if not authenticated
+  // Redirect to auth if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated && invitation) {
-      // Store token for after auth
       sessionStorage.setItem('pendingInviteToken', token || '');
       navigate(`/auth?redirect=/invite/${token}`);
     }
   }, [isLoading, isAuthenticated, invitation, token, navigate]);
 
-  // Check for pending invite after auth
-  useEffect(() => {
-    const pendingToken = sessionStorage.getItem('pendingInviteToken');
-    if (pendingToken && isAuthenticated) {
-      sessionStorage.removeItem('pendingInviteToken');
-    }
-  }, [isAuthenticated]);
-
-  if (isLoading) {
+  if (isLoading || autoAccepting) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="w-8 h-8 text-sway-500 animate-spin" />
@@ -99,9 +96,7 @@ export function AcceptInvitation() {
     );
   }
 
-  // Check if email matches
-  const emailMismatch = Boolean(user?.email && user.email.toLowerCase() !== invitation.email.toLowerCase());
-
+  // Only show this page if there's an email mismatch (user logged in with wrong email)
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-sway-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-8 max-w-md w-full">
@@ -144,40 +139,19 @@ export function AcceptInvitation() {
                 <p className="text-amber-700 mt-1">
                   This invitation was sent to <strong>{invitation.email}</strong>, but you're logged in as <strong>{user?.email}</strong>.
                 </p>
+                <p className="text-amber-700 mt-2">
+                  Please log out and sign in with the invited email address.
+                </p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Invitation Details */}
-        <div className="space-y-3 mb-6 text-sm">
-          <div className="flex justify-between">
-            <span className="text-slate-500">Invited by</span>
-            <span className="text-slate-700">{invitation.inviter?.full_name || 'Team Admin'}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Expires</span>
-            <span className="text-slate-700">
-              {new Date(invitation.expires_at).toLocaleDateString()}
-            </span>
-          </div>
-        </div>
-
         {/* Actions */}
         <div className="space-y-3">
-          <Button
-            onClick={handleAccept}
-            loading={acceptInvite.isPending}
-            disabled={emailMismatch}
-            className="w-full"
-            size="lg"
-          >
-            Accept Invitation
-          </Button>
-          
           <Link to="/">
-            <Button variant="ghost" className="w-full">
-              Decline
+            <Button variant="secondary" className="w-full">
+              Go to Dashboard
             </Button>
           </Link>
         </div>

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as orgApi from '../lib/organization';
 import { useAuth } from './useAuth';
-import type { UpdateOrganizationInput, InviteMemberInput } from '../types/organization';
+import type { UpdateOrganizationInput, InviteMemberInput, Invitation } from '../types/organization';
 
 // ============================================
 // Query Keys
@@ -115,6 +115,19 @@ export function useRemoveMember() {
   });
 }
 
+export function useTransferOwnership() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ orgId, newOwnerId }: { orgId: string; newOwnerId: string }) =>
+      orgApi.transferOwnership(orgId, newOwnerId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: orgKeys.members(variables.orgId) });
+      queryClient.invalidateQueries({ queryKey: orgKeys.role(variables.orgId) });
+    },
+  });
+}
+
 // ============================================
 // Invitations Hooks
 // ============================================
@@ -148,6 +161,12 @@ export function useDeleteInvitation() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: orgKeys.invitations(variables.orgId) });
     },
+  });
+}
+
+export function useResendInvitation() {
+  return useMutation({
+    mutationFn: (invitation: Invitation) => orgApi.resendInvitation(invitation),
   });
 }
 

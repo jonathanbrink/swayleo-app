@@ -1,11 +1,21 @@
-import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { Button, Input, useToast } from '../components/ui';
-import { useAuth } from '../hooks';
+import { useAuth, useInvitationByToken, useAcceptInvitation } from '../hooks';
 
 export function AuthPage() {
   const { isAuthenticated, signIn, signUp, loading } = useAuth();
   const { showToast } = useToast();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  const redirect = searchParams.get('redirect') || '/';
+  // Extract token from redirect URL if it's an invite
+  const inviteToken = redirect.startsWith('/invite/') ? redirect.split('/invite/')[1] : null;
+  
+  // Fetch invite details if we have a token
+  const { data: invitation } = useInvitationByToken(inviteToken || '');
+  const acceptInvite = useAcceptInvitation();
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -14,9 +24,36 @@ export function AuthPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+  // Pre-fill email from invitation and default to sign-up mode
+  useEffect(() => {
+    if (invitation?.email) {
+      setEmail(invitation.email);
+      setIsSignUp(true);
+    }
+  }, [invitation]);
+
+  // Auto-accept invitation after authentication
+  useEffect(() => {
+    const autoAcceptInvite = async () => {
+      if (isAuthenticated && inviteToken && invitation) {
+        try {
+          await acceptInvite.mutateAsync(inviteToken);
+          showToast(`Welcome to ${invitation.organization?.name || 'the team'}!`);
+          navigate('/');
+        } catch (err) {
+          // If acceptance fails, still go to dashboard
+          console.error('Failed to auto-accept invite:', err);
+          navigate('/');
+        }
+      }
+    };
+    
+    autoAcceptInvite();
+  }, [isAuthenticated, inviteToken, invitation]);
+
+  // Redirect if already authenticated and no invite to process
+  if (isAuthenticated && !inviteToken) {
+    return <Navigate to={redirect} replace />;
   }
 
   const validate = () => {
@@ -51,10 +88,15 @@ export function AuthPage() {
     try {
       if (isSignUp) {
         await signUp(email, password, fullName);
-        showToast('Account created! Please check your email to confirm.');
+        // If there's an invite, the useEffect above will auto-accept it
+        if (!inviteToken) {
+          showToast('Account created! Please check your email to confirm.');
+        }
       } else {
         await signIn(email, password);
-        showToast('Welcome back!');
+        if (!inviteToken) {
+          showToast('Welcome back!');
+        }
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Authentication failed';
@@ -84,7 +126,11 @@ export function AuthPage() {
             <span className="font-display font-semibold text-2xl text-slate-800">Swayleo</span>
           </div>
           <p className="text-slate-500">
-            {isSignUp ? 'Create your account' : 'Sign in to your account'}
+            {invitation 
+              ? `Create your account to join ${invitation.organization?.name || 'the team'}`
+              : isSignUp 
+                ? 'Create your account' 
+                : 'Sign in to your account'}
           </p>
         </div>
 
@@ -116,6 +162,7 @@ export function AuthPage() {
               }}
               error={errors.email}
               required
+              disabled={!!invitation}
             />
 
             <Input
@@ -136,17 +183,19 @@ export function AuthPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setErrors({});
-              }}
-              className="text-sm text-slate-500 hover:text-sway-600 transition-colors"
-            >
-              {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-            </button>
-          </div>
+          {!invitation && (
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setErrors({});
+                }}
+                className="text-sm text-slate-500 hover:text-sway-600 transition-colors"
+              >
+                {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Demo Note */}

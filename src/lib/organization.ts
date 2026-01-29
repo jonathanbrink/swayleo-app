@@ -136,17 +136,21 @@ export const getOrganizationMembers = async (orgId: string): Promise<Organizatio
 
   const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
-  // Get current user for email display
-  const { data: { user } } = await supabase.auth.getUser();
+  // Get current user for their email
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
   
-  return members.map(member => ({
-    ...member,
-    user: {
-      id: member.user_id,
-      full_name: profileMap.get(member.user_id)?.full_name || 'Unknown',
-      email: member.user_id === user?.id ? (user?.email || 'Unknown') : '...'
-    }
-  }));
+  return members.map(member => {
+    const profile = profileMap.get(member.user_id);
+    return {
+      ...member,
+      user: {
+        id: member.user_id,
+        full_name: profile?.full_name || null,
+        // Only show email for current user (we can get it from auth)
+        email: member.user_id === currentUser?.id ? currentUser.email : null
+      }
+    };
+  });
 };
 
 export const updateMemberRole = async (
@@ -171,6 +175,48 @@ export const removeMember = async (memberId: string): Promise<void> => {
     .eq('id', memberId);
 
   if (error) throw error;
+};
+
+export const transferOwnership = async (orgId: string, newOwnerId: string): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  // Get current owner's membership
+  const { data: currentOwnerMember } = await supabase
+    .from('organization_members')
+    .select('id')
+    .eq('org_id', orgId)
+    .eq('user_id', user.id)
+    .eq('role', 'owner')
+    .single();
+
+  if (!currentOwnerMember) throw new Error('Only the owner can transfer ownership');
+
+  // Get new owner's membership
+  const { data: newOwnerMember } = await supabase
+    .from('organization_members')
+    .select('id')
+    .eq('org_id', orgId)
+    .eq('user_id', newOwnerId)
+    .single();
+
+  if (!newOwnerMember) throw new Error('User is not a member of this organization');
+
+  // Demote current owner to admin
+  const { error: demoteError } = await supabase
+    .from('organization_members')
+    .update({ role: 'admin' })
+    .eq('id', currentOwnerMember.id);
+
+  if (demoteError) throw demoteError;
+
+  // Promote new owner
+  const { error: promoteError } = await supabase
+    .from('organization_members')
+    .update({ role: 'owner' })
+    .eq('id', newOwnerMember.id);
+
+  if (promoteError) throw promoteError;
 };
 
 export const getCurrentUserRole = async (orgId: string): Promise<string | null> => {
@@ -211,6 +257,47 @@ export const createInvitation = async (
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
+  // Get inviter's name
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single();
+
+  // Get org name
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('name')
+    .eq('id', orgId)
+    .single();
+
+  // Delete any existing invitations for this email in this org
+  await supabase
+    .from('invitations')
+    .delete()
+    .eq('org_id', orgId)
+    .eq('email', input.email.toLowerCase());
+
+  // Check if user is already a member (by checking profiles with this email)
+  const { data: existingProfile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', input.email.toLowerCase())
+    .single();
+
+  if (existingProfile) {
+    const { data: existingMember } = await supabase
+      .from('organization_members')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('user_id', existingProfile.id)
+      .single();
+
+    if (existingMember) {
+      throw new Error('This user is already a member of the organization');
+    }
+  }
+
   const { data, error } = await supabase
     .from('invitations')
     .insert({
@@ -228,6 +315,25 @@ export const createInvitation = async (
     }
     throw error;
   }
+
+  // Send invite email via edge function
+  try {
+    const inviteUrl = `${window.location.origin}/invite/${data.token}`;
+    
+    await supabase.functions.invoke('send-invite-email', {
+      body: {
+        to: input.email.toLowerCase(),
+        inviterName: profile?.full_name || user.email || 'Someone',
+        orgName: org?.name || 'an organization',
+        role: input.role,
+        inviteUrl,
+      },
+    });
+  } catch (emailError) {
+    console.error('Failed to send invite email:', emailError);
+    // Don't fail the invitation if email fails - they can still copy the link
+  }
+
   return data;
 };
 
@@ -236,6 +342,39 @@ export const deleteInvitation = async (invitationId: string): Promise<void> => {
     .from('invitations')
     .delete()
     .eq('id', invitationId);
+
+  if (error) throw error;
+};
+
+export const resendInvitation = async (invitation: Invitation): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  // Get inviter's name
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single();
+
+  // Get org name
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('name')
+    .eq('id', invitation.org_id)
+    .single();
+
+  const inviteUrl = `${window.location.origin}/invite/${invitation.token}`;
+  
+  const { error } = await supabase.functions.invoke('send-invite-email', {
+    body: {
+      to: invitation.email,
+      inviterName: profile?.full_name || user.email || 'Someone',
+      orgName: org?.name || 'an organization',
+      role: invitation.role,
+      inviteUrl,
+    },
+  });
 
   if (error) throw error;
 };
