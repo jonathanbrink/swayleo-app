@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Sparkles, AlertCircle } from 'lucide-react';
 import { Button, Modal, Input, useToast } from '../components/ui';
-import { EmailTypeSelector, GenerationForm, GeneratedEmailPreview, TemplateSelector } from '../components/email';
+import { EmailTypeSelector, GenerationForm, GeneratedEmailEditor, TemplateSelector } from '../components/email';
 import { useBrand, useBrandKit, useEmailGeneration, useSaveEmail, useCurrentOrganization } from '../hooks';
 import { EMAIL_TEMPLATES } from '../types/email';
 import type { EmailType, EmailGenerationRequest, GeneratedSubjectLine, GeneratedEmailVariation, LLMProvider } from '../types/email';
@@ -237,7 +237,7 @@ export function EmailGenerator() {
 
         {/* Step 3: Preview */}
         {step === 'preview' && generatedEmail && (
-          <GeneratedEmailPreview
+          <GeneratedEmailEditor
             email={generatedEmail}
             onSave={handleSaveClick}
             onRegenerate={handleRegenerate}

@@ -213,12 +213,23 @@ Return your response as JSON with this exact structure:
   ],
   "variations": [
     {
-      "headline": "Optional headline or null",
-      "body": "The email body copy with line breaks as \\n",
-      "cta": "Call to action button text"
+      "headline": "Main headline/header for the email",
+      "subheader1": "First subheader - a short punchy line that introduces the main message",
+      "cta1": "First call to action button text",
+      "subheader2": "Second subheader - introduces the body copy section",
+      "body": "The main email body copy with line breaks as \\n",
+      "cta2": "Second call to action button text"
     }
   ]
 }
+
+IMPORTANT: Each variation MUST include all fields: headline, subheader1, cta1, subheader2, body, cta2
+- headline: The main header (bold, attention-grabbing)
+- subheader1: A short compelling line under the headline (1-2 sentences max)
+- cta1: First CTA button (action-oriented)
+- subheader2: Introduces the body copy section (e.g., "Their routines, their words" or "Why customers love us")
+- body: The main content with testimonials, product details, or brand story
+- cta2: Second CTA button (can be same or different from cta1)
 </output_format>
 
 Generate ${request.subjectLineCount} subject lines with preview text, and ${request.variationCount} email body variation(s). Each variation should have a different angle or approach while staying true to the brand.`;

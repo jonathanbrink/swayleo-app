@@ -110,9 +110,23 @@ const generateWithLLM = async (
     brandId: request.brandId,
     emailType: request.emailType,
     subjectLines: data.subject_lines,
-    variations: data.variations.map((v: { headline?: string; body: string; cta: string }) => ({
+    variations: data.variations.map((v: { 
+      headline?: string; 
+      subheader1?: string;
+      cta1?: string;
+      subheader2?: string;
+      body: string; 
+      cta?: string;
+      cta2?: string;
+    }) => ({
       id: crypto.randomUUID(),
-      ...v,
+      headline: v.headline,
+      subheader1: v.subheader1,
+      cta1: v.cta1,
+      subheader2: v.subheader2,
+      body: v.body,
+      cta: v.cta || v.cta1 || 'Shop Now', // Backward compatibility
+      cta2: v.cta2,
     })),
     generatedAt: new Date().toISOString(),
     model: data.model,
@@ -211,6 +225,168 @@ ${email.body}
 
 CTA:
 ${email.cta}`;
+};
+
+export const exportEmailAsDocx = async (email: {
+  subjectLine: string;
+  previewText?: string;
+  headline?: string;
+  subheader1?: string;
+  cta1?: string;
+  subheader2?: string;
+  body: string;
+  cta2?: string;
+}, brandName: string, emailType: string): Promise<void> => {
+  // Dynamically import docx library
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = await import('docx');
+  
+  const children: any[] = [
+    // Title
+    new Paragraph({
+      children: [new TextRun({ text: `${brandName} - ${emailType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Email`, bold: true, size: 32 })],
+      heading: HeadingLevel.HEADING_1,
+      spacing: { after: 400 },
+    }),
+    
+    // Subject Line
+    new Paragraph({
+      children: [new TextRun({ text: 'Subject Line', bold: true, size: 24 })],
+      spacing: { before: 300, after: 100 },
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: email.subjectLine, size: 22 })],
+      spacing: { after: 200 },
+    }),
+    
+    // Preview Text
+    new Paragraph({
+      children: [new TextRun({ text: 'Preview Text', bold: true, size: 24 })],
+      spacing: { before: 300, after: 100 },
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: email.previewText || '(none)', size: 22, italics: !email.previewText })],
+      spacing: { after: 300 },
+    }),
+    
+    // Divider
+    new Paragraph({
+      children: [new TextRun({ text: '─'.repeat(50), color: 'CCCCCC' })],
+      spacing: { before: 200, after: 200 },
+    }),
+    
+    // Email Body Header
+    new Paragraph({
+      children: [new TextRun({ text: 'Email Body', bold: true, size: 28 })],
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 300, after: 300 },
+    }),
+  ];
+
+  // Header
+  if (email.headline) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: 'Header', bold: true, size: 20, color: '666666' })],
+        spacing: { before: 200, after: 50 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: email.headline, bold: true, size: 28 })],
+        spacing: { after: 200 },
+      })
+    );
+  }
+
+  // Subheader 1
+  if (email.subheader1) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: 'Subheader', bold: true, size: 20, color: '666666' })],
+        spacing: { before: 200, after: 50 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: email.subheader1, size: 22 })],
+        spacing: { after: 200 },
+      })
+    );
+  }
+
+  // CTA 1
+  if (email.cta1) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: 'CTA', bold: true, size: 20, color: '666666' })],
+        spacing: { before: 200, after: 50 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: email.cta1, bold: true, size: 22, allCaps: true })],
+        spacing: { after: 200 },
+      })
+    );
+  }
+
+  // Subheader 2
+  if (email.subheader2) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: 'Subheader', bold: true, size: 20, color: '666666' })],
+        spacing: { before: 200, after: 50 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: email.subheader2, size: 22 })],
+        spacing: { after: 200 },
+      })
+    );
+  }
+
+  // Body Copy
+  if (email.body) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: 'Body Copy', bold: true, size: 20, color: '666666' })],
+        spacing: { before: 200, after: 50 },
+      })
+    );
+    
+    // Split body into paragraphs
+    const bodyParagraphs = email.body.split('\n\n');
+    bodyParagraphs.forEach(para => {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: para, size: 22 })],
+          spacing: { after: 200 },
+        })
+      );
+    });
+  }
+
+  // CTA 2
+  if (email.cta2) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: 'CTA', bold: true, size: 20, color: '666666' })],
+        spacing: { before: 200, after: 50 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: email.cta2, bold: true, size: 22, allCaps: true })],
+        spacing: { after: 200 },
+      })
+    );
+  }
+
+  const doc = new Document({
+    sections: [{
+      properties: {},
+      children,
+    }],
+  });
+
+  const buffer = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(buffer);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${brandName.toLowerCase().replace(/\s+/g, '-')}-${emailType}-email.docx`;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 export const exportEmailAsHTML = (email: {

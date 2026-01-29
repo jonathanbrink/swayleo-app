@@ -173,8 +173,12 @@ export interface GeneratedSubjectLine {
 export interface GeneratedEmailVariation {
   id: string;
   headline?: string;
+  subheader1?: string;
+  cta1?: string;
+  subheader2?: string;
   body: string;
-  cta: string;
+  cta: string;  // Keep for backward compatibility
+  cta2?: string;
   ctaUrl?: string;
 }
 

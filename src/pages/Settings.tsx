@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Building2, Users, Mail, Shield, Crown, UserMinus, 
-  Copy, Check, Trash2, Plus, Clock, CreditCard, Zap, Sparkles, Key, Eye, EyeOff
+  Copy, Check, Trash2, Plus, Clock, CreditCard, Zap, Sparkles, Key, Eye, EyeOff, User, Camera
 } from 'lucide-react';
 import { Button, Input, Modal, Select, useToast } from '../components/ui';
 import { UsageBar, UpgradeModal } from '../components/billing';
@@ -20,10 +20,11 @@ import {
   useUsageSummary,
   useCreatePortalSession
 } from '../hooks';
+import { supabase } from '../lib/supabase';
 import { getPlan, SUBSCRIPTION_PLANS } from '../types/billing';
 import type { OrganizationMember, Invitation } from '../types/organization';
 
-type Tab = 'general' | 'team' | 'billing';
+type Tab = 'profile' | 'general' | 'team' | 'billing';
 
 export function Settings() {
   const { showToast } = useToast();
@@ -42,13 +43,18 @@ export function Settings() {
   const removeMember = useRemoveMember();
   const createPortal = useCreatePortalSession();
 
-  const [activeTab, setActiveTab] = useState<Tab>('general');
+  const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
   const [copiedInvite, setCopiedInvite] = useState<string | null>(null);
   const [orgName, setOrgName] = useState('');
+  
+  // Profile state
+  const [fullName, setFullName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
   
   // API Keys state
   const [anthropicKey, setAnthropicKey] = useState('');
@@ -84,6 +90,48 @@ export function Settings() {
       }
     }
   }, [org]);
+
+  // Load user profile
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user?.id) return;
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', user.id)
+        .single();
+      
+      if (data) {
+        setFullName(data.full_name || '');
+        setAvatarUrl(data.avatar_url || '');
+      }
+    };
+    
+    loadProfile();
+  }, [user?.id]);
+
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
+    
+    setSavingProfile(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          full_name: fullName.trim(),
+          avatar_url: avatarUrl.trim() || null
+        })
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      showToast('Profile updated');
+    } catch {
+      showToast('Failed to update profile', 'error');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const handleSaveOrg = async () => {
     if (!org || !orgName.trim()) return;
@@ -197,7 +245,7 @@ export function Settings() {
       {/* Header */}
       <header className="bg-white border-b border-slate-100 px-8 py-6">
         <h1 className="font-display font-semibold text-2xl text-slate-800">Settings</h1>
-        <p className="text-slate-500 mt-1">Manage your organization, team, and billing</p>
+        <p className="text-slate-500 mt-1">Manage your profile, organization, team, and billing</p>
       </header>
 
       {/* Content */}
@@ -206,6 +254,7 @@ export function Settings() {
           {/* Tabs */}
           <div className="flex gap-1 mb-8 border-b border-slate-200">
             {[
+              { id: 'profile', label: 'Profile', icon: User },
               { id: 'general', label: 'General', icon: Building2 },
               { id: 'team', label: 'Team', icon: Users },
               { id: 'billing', label: 'Billing', icon: CreditCard },
@@ -224,6 +273,111 @@ export function Settings() {
               </button>
             ))}
           </div>
+
+          {/* Profile Tab */}
+          {activeTab === 'profile' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl border border-slate-100 p-6">
+                <h2 className="font-semibold text-slate-800 mb-4">Your Profile</h2>
+                
+                <div className="space-y-6 max-w-md">
+                  {/* Avatar */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Profile Picture
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        {avatarUrl ? (
+                          <img 
+                            src={avatarUrl} 
+                            alt="Profile" 
+                            className="w-20 h-20 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-20 h-20 rounded-full bg-sway-100 flex items-center justify-center">
+                            <span className="text-2xl font-semibold text-sway-600">
+                              {fullName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                            </span>
+                          </div>
+                        )}
+                        <button
+                          className="absolute bottom-0 right-0 p-1.5 bg-white rounded-full border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors"
+                          title="Change profile picture"
+                          onClick={() => {
+                            const url = prompt('Enter image URL:', avatarUrl);
+                            if (url !== null) setAvatarUrl(url);
+                          }}
+                        >
+                          <Camera className="w-4 h-4 text-slate-600" />
+                        </button>
+                      </div>
+                      <div className="text-sm text-slate-500">
+                        <p>Click the camera icon to add a profile picture.</p>
+                        <p className="text-xs mt-1">Paste an image URL (e.g., from Gravatar)</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Full Name */}
+                  <Input
+                    label="Full Name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Your full name"
+                  />
+
+                  {/* Email (read-only) */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Email Address
+                    </label>
+                    <div className="px-3 py-2 bg-slate-50 rounded-lg text-sm text-slate-600">
+                      {user?.email || 'No email'}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Contact support to change your email address
+                    </p>
+                  </div>
+
+                  <Button
+                    onClick={handleSaveProfile}
+                    loading={savingProfile}
+                  >
+                    Save Profile
+                  </Button>
+                </div>
+              </div>
+
+              {/* Password Section */}
+              <div className="bg-white rounded-xl border border-slate-100 p-6">
+                <h2 className="font-semibold text-slate-800 mb-4">Security</h2>
+                
+                <div className="space-y-4 max-w-md">
+                  <p className="text-sm text-slate-500">
+                    To change your password, click below and follow the instructions sent to your email.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      if (!user?.email) return;
+                      try {
+                        const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+                          redirectTo: `${window.location.origin}/auth?reset=true`,
+                        });
+                        if (error) throw error;
+                        showToast('Password reset email sent');
+                      } catch {
+                        showToast('Failed to send reset email', 'error');
+                      }
+                    }}
+                  >
+                    Reset Password
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* General Tab */}
           {activeTab === 'general' && (
