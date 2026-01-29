@@ -15,6 +15,11 @@ interface GenerateRequest {
   provider: "anthropic" | "openai" | "deepseek";
   brandId: string;
   emailType: string;
+  apiKeys?: {
+    anthropic?: string;
+    openai?: string;
+    deepseek?: string;
+  };
 }
 
 serve(async (req) => {
@@ -24,12 +29,12 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, systemPrompt, provider, brandId, emailType }: GenerateRequest = await req.json();
+    const { prompt, systemPrompt, provider, brandId, emailType, apiKeys }: GenerateRequest = await req.json();
 
-    // Get API keys from environment
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
-    const deepseekKey = Deno.env.get("DEEPSEEK_API_KEY");
+    // Get API keys - prefer client-provided keys, fall back to environment secrets
+    const anthropicKey = apiKeys?.anthropic || Deno.env.get("ANTHROPIC_API_KEY");
+    const openaiKey = apiKeys?.openai || Deno.env.get("OPENAI_API_KEY");
+    const deepseekKey = apiKeys?.deepseek || Deno.env.get("DEEPSEEK_API_KEY");
 
     let response;
     let model: string;

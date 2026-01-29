@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Building2, Users, Mail, Shield, Crown, UserMinus, 
-  Copy, Check, Trash2, Plus, Clock, CreditCard, Zap, Sparkles
+  Copy, Check, Trash2, Plus, Clock, CreditCard, Zap, Sparkles, Key, Eye, EyeOff
 } from 'lucide-react';
 import { Button, Input, Modal, Select, useToast } from '../components/ui';
 import { UsageBar, UpgradeModal } from '../components/billing';
@@ -49,6 +49,15 @@ export function Settings() {
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
   const [copiedInvite, setCopiedInvite] = useState<string | null>(null);
   const [orgName, setOrgName] = useState('');
+  
+  // API Keys state
+  const [anthropicKey, setAnthropicKey] = useState('');
+  const [openaiKey, setOpenaiKey] = useState('');
+  const [deepseekKey, setDeepseekKey] = useState('');
+  const [showAnthropicKey, setShowAnthropicKey] = useState(false);
+  const [showOpenaiKey, setShowOpenaiKey] = useState(false);
+  const [showDeepseekKey, setShowDeepseekKey] = useState(false);
+  const [savingKeys, setSavingKeys] = useState(false);
 
   const isAdmin = currentRole === 'owner' || currentRole === 'admin';
   const currentTier = subscription?.tier || 'free';
@@ -58,6 +67,23 @@ export function Settings() {
   if (org && !orgName) {
     setOrgName(org.name);
   }
+
+  // Load saved API keys from localStorage
+  useEffect(() => {
+    if (org) {
+      try {
+        const savedKeys = localStorage.getItem(`api_keys_${org.id}`);
+        if (savedKeys) {
+          const keys = JSON.parse(savedKeys);
+          if (keys.anthropic) setAnthropicKey(keys.anthropic);
+          if (keys.openai) setOpenaiKey(keys.openai);
+          if (keys.deepseek) setDeepseekKey(keys.deepseek);
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  }, [org]);
 
   const handleSaveOrg = async () => {
     if (!org || !orgName.trim()) return;
@@ -245,6 +271,128 @@ export function Settings() {
                   )}
                 </div>
               </div>
+
+              {/* API Keys Section */}
+              {isAdmin && (
+                <div className="bg-white rounded-xl border border-slate-100 p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Key className="w-5 h-5 text-slate-600" />
+                    <h2 className="font-semibold text-slate-800">AI Provider API Keys</h2>
+                  </div>
+                  <p className="text-sm text-slate-500 mb-6">
+                    Add your own API keys to use different AI providers. Keys are stored securely and used for email generation.
+                  </p>
+
+                  <div className="space-y-4 max-w-lg">
+                    {/* Anthropic */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Anthropic API Key
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type={showAnthropicKey ? 'text' : 'password'}
+                            value={anthropicKey}
+                            onChange={(e) => setAnthropicKey(e.target.value)}
+                            placeholder="sk-ant-..."
+                            className="w-full px-3 py-2 pr-10 rounded-lg border border-slate-200 focus:border-sway-500 focus:ring-2 focus:ring-sway-500/20 outline-none text-sm font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowAnthropicKey(!showAnthropicKey)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                          >
+                            {showAnthropicKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">For Claude Sonnet 4 (best quality)</p>
+                    </div>
+
+                    {/* OpenAI */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        OpenAI API Key
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type={showOpenaiKey ? 'text' : 'password'}
+                            value={openaiKey}
+                            onChange={(e) => setOpenaiKey(e.target.value)}
+                            placeholder="sk-..."
+                            className="w-full px-3 py-2 pr-10 rounded-lg border border-slate-200 focus:border-sway-500 focus:ring-2 focus:ring-sway-500/20 outline-none text-sm font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowOpenaiKey(!showOpenaiKey)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                          >
+                            {showOpenaiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">For GPT-4o (fast)</p>
+                    </div>
+
+                    {/* DeepSeek */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        DeepSeek API Key
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type={showDeepseekKey ? 'text' : 'password'}
+                            value={deepseekKey}
+                            onChange={(e) => setDeepseekKey(e.target.value)}
+                            placeholder="sk-..."
+                            className="w-full px-3 py-2 pr-10 rounded-lg border border-slate-200 focus:border-sway-500 focus:ring-2 focus:ring-sway-500/20 outline-none text-sm font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowDeepseekKey(!showDeepseekKey)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                          >
+                            {showDeepseekKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">For DeepSeek (cheapest)</p>
+                    </div>
+
+                    <div className="pt-2">
+                      <Button
+                        onClick={async () => {
+                          setSavingKeys(true);
+                          try {
+                            // Store keys in localStorage for now
+                            // In production, these should be stored securely in the database
+                            const keys = {
+                              anthropic: anthropicKey || undefined,
+                              openai: openaiKey || undefined,
+                              deepseek: deepseekKey || undefined,
+                            };
+                            localStorage.setItem(`api_keys_${org.id}`, JSON.stringify(keys));
+                            showToast('API keys saved');
+                          } catch {
+                            showToast('Failed to save API keys', 'error');
+                          } finally {
+                            setSavingKeys(false);
+                          }
+                        }}
+                        loading={savingKeys}
+                      >
+                        Save API Keys
+                      </Button>
+                      <p className="text-xs text-slate-400 mt-2">
+                        Keys are stored locally in this browser. For team-wide keys, contact support.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

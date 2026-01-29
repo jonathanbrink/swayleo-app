@@ -9,13 +9,11 @@ import type {
 } from '../types/email';
 
 // ============================================
-// Check if we're in demo/mock mode
+// Demo mode flag (set to true for local dev without edge function)
 // ============================================
 
 const isDemoMode = () => {
-  return !import.meta.env.VITE_ANTHROPIC_API_KEY && 
-         !import.meta.env.VITE_OPENAI_API_KEY &&
-         !import.meta.env.VITE_DEEPSEEK_API_KEY;
+  return import.meta.env.VITE_USE_MOCK_GENERATION === 'true';
 };
 
 // ============================================
@@ -69,6 +67,18 @@ const generateMockEmail = (request: EmailGenerationRequest): GeneratedEmail => {
 // Real LLM Generation (via Edge Function)
 // ============================================
 
+const getLocalApiKeys = (orgId: string): { anthropic?: string; openai?: string; deepseek?: string } => {
+  try {
+    const savedKeys = localStorage.getItem(`api_keys_${orgId}`);
+    if (savedKeys) {
+      return JSON.parse(savedKeys);
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return {};
+};
+
 const generateWithLLM = async (
   brand: Brand,
   kit: BrandKit,
@@ -76,6 +86,9 @@ const generateWithLLM = async (
   provider: LLMProvider = 'anthropic'
 ): Promise<GeneratedEmail> => {
   const prompt = buildEmailPrompt(brand, kit, request);
+  
+  // Get locally stored API keys (org-specific)
+  const localKeys = getLocalApiKeys(brand.org_id);
   
   // Call Supabase Edge Function
   const { data, error } = await supabase.functions.invoke('generate-email', {
@@ -85,6 +98,8 @@ const generateWithLLM = async (
       provider,
       brandId: request.brandId,
       emailType: request.emailType,
+      // Pass local keys if available
+      apiKeys: localKeys,
     },
   });
 

@@ -5,7 +5,7 @@ import { Button, Modal, Input, useToast } from '../components/ui';
 import { EmailTypeSelector, GenerationForm, GeneratedEmailPreview, TemplateSelector } from '../components/email';
 import { useBrand, useBrandKit, useEmailGeneration, useSaveEmail, useCurrentOrganization } from '../hooks';
 import { EMAIL_TEMPLATES } from '../types/email';
-import type { EmailType, EmailGenerationRequest, GeneratedSubjectLine, GeneratedEmailVariation } from '../types/email';
+import type { EmailType, EmailGenerationRequest, GeneratedSubjectLine, GeneratedEmailVariation, LLMProvider } from '../types/email';
 import type { CustomTemplate } from '../types/template';
 
 type Step = 'select-type' | 'configure' | 'preview';
@@ -46,15 +46,17 @@ export function EmailGenerator() {
     setSelectedTemplate(template);
   };
 
-  const handleGenerate = useCallback(async (options: Omit<EmailGenerationRequest, 'brandId' | 'emailType'>) => {
+  const handleGenerate = useCallback(async (options: Omit<EmailGenerationRequest, 'brandId' | 'emailType'> & { provider?: LLMProvider }) => {
     if (!brand || !kit || !selectedType) return;
+
+    const { provider, ...restOptions } = options;
 
     try {
       await generate(brand, kit, {
         brandId: brand.id,
         emailType: selectedType,
-        ...options,
-      });
+        ...restOptions,
+      }, provider);
       setStep('preview');
     } catch {
       showToast('Failed to generate email. Please try again.', 'error');

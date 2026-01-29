@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Sparkles, Sliders } from 'lucide-react';
+import { Sparkles, Sliders, Cpu } from 'lucide-react';
 import { Button, Textarea, Toggle } from '../ui';
-import type { EmailGenerationRequest, EmailType } from '../../types/email';
+import type { EmailGenerationRequest, EmailType, LLMProvider } from '../../types/email';
+import { LLM_CONFIGS } from '../../types/email';
 import type { CustomTemplate } from '../../types/template';
 
 interface GenerationFormProps {
   emailType: EmailType;
-  onGenerate: (options: Omit<EmailGenerationRequest, 'brandId' | 'emailType'>) => void;
+  onGenerate: (options: Omit<EmailGenerationRequest, 'brandId' | 'emailType'> & { provider?: LLMProvider }) => void;
   isGenerating: boolean;
   template?: CustomTemplate | null;
 }
@@ -19,6 +20,7 @@ export function GenerationForm({ onGenerate, isGenerating, template }: Generatio
   const [tone, setTone] = useState<'default' | 'more_casual' | 'more_formal' | 'more_urgent' | 'more_playful'>('default');
   const [includeEmoji, setIncludeEmoji] = useState(true);
   const [maxLength, setMaxLength] = useState<'short' | 'medium' | 'long'>('medium');
+  const [provider, setProvider] = useState<LLMProvider>('deepseek');
 
   // Apply template settings when selected
   useEffect(() => {
@@ -55,6 +57,7 @@ export function GenerationForm({ onGenerate, isGenerating, template }: Generatio
       tone,
       includeEmoji,
       maxLength,
+      provider,
     });
   };
 
@@ -63,9 +66,7 @@ export function GenerationForm({ onGenerate, isGenerating, template }: Generatio
       {/* Template Applied Banner */}
       {template && (
         <div className="bg-sway-50 border border-sway-100 rounded-xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-sway-100 flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-sway-600" />
-          </div>
+          <Sparkles className="w-5 h-5 text-sway-600" />
           <div className="flex-1">
             <p className="font-medium text-sway-800">Using template: {template.name}</p>
             <p className="text-sm text-sway-600">
@@ -209,6 +210,37 @@ export function GenerationForm({ onGenerate, isGenerating, template }: Generatio
             checked={includeEmoji}
             onChange={setIncludeEmoji}
           />
+
+          {/* AI Model Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              <span className="flex items-center gap-2">
+                <Cpu className="w-4 h-4" />
+                AI Model
+              </span>
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(Object.keys(LLM_CONFIGS) as LLMProvider[]).map((key) => {
+                const config = LLM_CONFIGS[key];
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setProvider(key)}
+                    className={`py-2 px-3 rounded-lg text-sm transition-all ${
+                      provider === key
+                        ? 'bg-sway-500 text-white'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="font-medium">{config.displayName}</div>
+                    <div className={`text-xs ${provider === key ? 'text-sway-100' : 'text-slate-400'}`}>
+                      {key === 'deepseek' ? 'Cheapest' : key === 'anthropic' ? 'Best quality' : 'Fast'}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
