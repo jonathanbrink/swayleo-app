@@ -8,3 +8,4 @@ export * from './useAnalytics';
 export * from './useTemplates';
 export * from './useBilling';
 export * from './useClient';
+export * from './useKnowledge';

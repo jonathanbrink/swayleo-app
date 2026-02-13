@@ -12,7 +12,7 @@ export function AcceptInvitation() {
 
   const { data: invitation, isLoading, error } = useInvitationByToken(token || '');
   const acceptInvite = useAcceptInvitation();
-  const [accepted, setAccepted] = useState(false);
+  const [accepted, _setAccepted] = useState(false);
   const [autoAccepting, setAutoAccepting] = useState(false);
 
   // Check if email matches

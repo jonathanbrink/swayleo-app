@@ -1,13 +1,16 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Globe, Calendar, Check, Pencil, Trash2, ExternalLink, Sparkles, Mail } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, Globe, Calendar, Check, Pencil, Trash2, ExternalLink, Sparkles, Mail, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button, useToast } from '../components/ui';
 import { ClientAccessManager } from '../components/brands/ClientAccessManager';
+import { KnowledgePanel } from '../components/knowledge/KnowledgePanel';
 import { useBrand, useBrandKit, useDeleteBrand, useMoodboardAssets } from '../hooks';
 
 export function BrandDetail() {
   const { id: brandId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
 
   const { data: brand, isLoading: brandLoading } = useBrand(brandId!);
   const { data: kit, isLoading: kitLoading } = useBrandKit(brandId!);
@@ -271,6 +274,34 @@ export function BrandDetail() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Knowledge Base Section */}
+        <div className="mt-8">
+          <button
+            onClick={() => setShowKnowledgeBase(!showKnowledgeBase)}
+            className="w-full flex items-center justify-between bg-white rounded-xl border border-slate-100 p-6 hover:border-slate-200 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-sway-100 to-fuchsia-100 flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-sway-600" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-slate-800">Knowledge Base</h3>
+                <p className="text-sm text-slate-500">Products, FAQs, competitor intel, and more — grounds AI-generated content</p>
+              </div>
+            </div>
+            {showKnowledgeBase ? (
+              <ChevronUp className="w-5 h-5 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-slate-400" />
+            )}
+          </button>
+          {showKnowledgeBase && (
+            <div className="mt-4 bg-white rounded-xl border border-slate-100 p-6">
+              <KnowledgePanel brandId={brand.id} />
+            </div>
+          )}
         </div>
       </main>
     </div>

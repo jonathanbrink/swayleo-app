@@ -147,7 +147,7 @@ export const getOrganizationMembers = async (orgId: string): Promise<Organizatio
         id: member.user_id,
         full_name: profile?.full_name || null,
         // Only show email for current user (we can get it from auth)
-        email: member.user_id === currentUser?.id ? currentUser.email : null
+        email: member.user_id === currentUser?.id ? currentUser?.email ?? null : null
       }
     };
   });

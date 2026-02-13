@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Copy, Check, Download, Save, RefreshCw, FileDown, FileText } from 'lucide-react';
-import { Button, Modal, Input, useToast } from '../ui';
+import { Button, Modal, useToast } from '../ui';
 import { copyToClipboard, exportEmailAsHTML, exportEmailAsDocx } from '../../lib/email';
 import { ESP_FORMATS, exportEmail, downloadExport, type ESPFormat } from '../../lib/espExport';
 import type { GeneratedEmail, GeneratedSubjectLine, GeneratedEmailVariation } from '../../types/email';
@@ -404,7 +404,7 @@ export function GeneratedEmailEditor({
 
         {/* Sections */}
         <div className="divide-y divide-slate-100">
-          {editableData.sections.map((section, index) => (
+          {editableData.sections.map((section, _index) => (
             <div key={section.id} className="group">
               <div className="flex items-start">
                 {/* Section Type Label */}

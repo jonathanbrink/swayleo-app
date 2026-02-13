@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { 
-  Building2, Users, Mail, Shield, Crown, UserMinus, 
+  Building2, Users, Mail, Shield, Crown,
   Copy, Check, Trash2, Plus, Clock, CreditCard, Zap, Sparkles, Key, Eye, EyeOff, User, Camera, Send
 } from 'lucide-react';
 import { Button, Input, Modal, Select, useToast } from '../components/ui';

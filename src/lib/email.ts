@@ -238,7 +238,7 @@ export const exportEmailAsDocx = async (email: {
   cta2?: string;
 }, brandName: string, emailType: string): Promise<void> => {
   // Dynamically import docx library
-  const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = await import('docx');
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx');
   
   const children: any[] = [
     // Title

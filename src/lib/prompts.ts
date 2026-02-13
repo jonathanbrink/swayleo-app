@@ -1,11 +1,37 @@
 import type { BrandKit, Brand } from '../types';
 import type { EmailType, EmailGenerationRequest } from '../types/email';
+import type { KnowledgeEntry } from '../types/knowledge';
 
 // ============================================
 // Brand Kit to XML Context
 // ============================================
 
-export function buildBrandKitContext(brand: Brand, kit: BrandKit): string {
+export function buildKnowledgeBaseContext(entries: KnowledgeEntry[]): string {
+  if (!entries || entries.length === 0) return '';
+
+  // Group entries by category
+  const grouped: Record<string, KnowledgeEntry[]> = {};
+  for (const entry of entries) {
+    if (!grouped[entry.category]) grouped[entry.category] = [];
+    grouped[entry.category].push(entry);
+  }
+
+  let xml = '\n  <knowledge_base>';
+  for (const [category, categoryEntries] of Object.entries(grouped)) {
+    xml += `\n    <${category}>`;
+    for (const entry of categoryEntries) {
+      xml += `\n      <entry title="${entry.title}">${entry.content}</entry>`;
+    }
+    xml += `\n    </${category}>`;
+  }
+  xml += '\n  </knowledge_base>';
+
+  return xml;
+}
+
+export function buildBrandKitContext(brand: Brand, kit: BrandKit, knowledgeEntries?: KnowledgeEntry[]): string {
+  const knowledgeXml = knowledgeEntries ? buildKnowledgeBaseContext(knowledgeEntries) : '';
+
   return `<brand_kit>
   <brand_name>${brand.name}</brand_name>
   ${brand.website_url ? `<website>${brand.website_url}</website>` : ''}
@@ -44,7 +70,7 @@ export function buildBrandKitContext(brand: Brand, kit: BrandKit): string {
     <international_shipping>${kit.marketing_strategy.international_shipping ? 'Yes' : 'No'}</international_shipping>
     <return_policy>${kit.marketing_strategy.return_policy || 'Not specified'}</return_policy>
   </marketing_context>
-</brand_kit>`;
+${knowledgeXml}</brand_kit>`;
 }
 
 // ============================================
@@ -165,9 +191,10 @@ const LENGTH_GUIDELINES: Record<string, string> = {
 export function buildEmailPrompt(
   brand: Brand,
   kit: BrandKit,
-  request: EmailGenerationRequest
+  request: EmailGenerationRequest,
+  knowledgeEntries?: KnowledgeEntry[]
 ): string {
-  const brandContext = buildBrandKitContext(brand, kit);
+  const brandContext = buildBrandKitContext(brand, kit, knowledgeEntries);
   const typeInstructions = EMAIL_TYPE_INSTRUCTIONS[request.emailType];
   const toneModifier = TONE_MODIFIERS[request.tone || 'default'];
   const lengthGuideline = LENGTH_GUIDELINES[request.maxLength || 'medium'];
