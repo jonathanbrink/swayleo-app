@@ -1,9 +1,10 @@
 import { supabase } from './supabase';
 import { buildEmailPrompt, EMAIL_SYSTEM_PROMPT } from './prompts';
+import { getKnowledgeForGeneration } from './knowledge';
 import type { Brand, BrandKit } from '../types';
-import type { 
-  EmailGenerationRequest, 
-  GeneratedEmail, 
+import type {
+  EmailGenerationRequest,
+  GeneratedEmail,
   SavedEmail,
   LLMProvider
 } from '../types/email';
@@ -85,7 +86,13 @@ const generateWithLLM = async (
   request: EmailGenerationRequest,
   provider: LLMProvider = 'anthropic'
 ): Promise<GeneratedEmail> => {
-  const prompt = buildEmailPrompt(brand, kit, request);
+  // Fetch relevant Knowledge Base entries for this email type
+  const knowledgeEntries = await getKnowledgeForGeneration(
+    request.brandId,
+    request.emailType
+  );
+
+  const prompt = buildEmailPrompt(brand, kit, request, knowledgeEntries);
   
   // Get locally stored API keys (org-specific)
   const localKeys = getLocalApiKeys(brand.org_id);
