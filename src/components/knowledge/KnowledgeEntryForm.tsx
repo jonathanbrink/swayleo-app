@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button, Input, Textarea, Select } from '../ui';
 import { Modal } from '../ui/Modal';
 import type { KnowledgeEntry, KnowledgeCategory, CreateKnowledgeEntryInput } from '../../types/knowledge';
 import { KNOWLEDGE_CATEGORIES } from '../../types/knowledge';
+
+const MAX_TITLE_LENGTH = 200;
+const MAX_CONTENT_LENGTH = 50000;
 
 interface KnowledgeEntryFormProps {
   isOpen: boolean;
@@ -26,9 +29,27 @@ export function KnowledgeEntryForm({
   const [category, setCategory] = useState<KnowledgeCategory>(existingEntry?.category || 'general');
   const [sourceUrl, setSourceUrl] = useState(existingEntry?.source_url || '');
 
+  // Sync form state when editing a different entry
+  useEffect(() => {
+    if (existingEntry) {
+      setTitle(existingEntry.title);
+      setContent(existingEntry.content);
+      setCategory(existingEntry.category);
+      setSourceUrl(existingEntry.source_url || '');
+    } else {
+      setTitle('');
+      setContent('');
+      setCategory('general');
+      setSourceUrl('');
+    }
+  }, [existingEntry?.id]);
+
+  const isTitleOverLimit = title.trim().length > MAX_TITLE_LENGTH;
+  const isContentOverLimit = content.trim().length > MAX_CONTENT_LENGTH;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
+    if (!title.trim() || !content.trim() || isTitleOverLimit || isContentOverLimit) return;
 
     await onSubmit({
       brand_id: brandId,
@@ -67,22 +88,37 @@ export function KnowledgeEntryForm({
           options={categoryOptions}
         />
 
-        <Input
-          label="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g., Summer Collection 2026, Competitor Analysis - Brand X"
-          required
-        />
+        <div>
+          <Input
+            label="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g., Summer Collection 2026, Competitor Analysis - Brand X"
+            required
+            maxLength={MAX_TITLE_LENGTH + 50}
+          />
+          {title.trim().length > MAX_TITLE_LENGTH * 0.8 && (
+            <p className={`text-xs mt-1 ${isTitleOverLimit ? 'text-red-500' : 'text-slate-400'}`}>
+              {title.trim().length}/{MAX_TITLE_LENGTH} characters
+            </p>
+          )}
+        </div>
 
-        <Textarea
-          label="Content"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Enter the knowledge content. Be as detailed as possible — this information will be used to ground AI-generated content."
-          rows={8}
-          required
-        />
+        <div>
+          <Textarea
+            label="Content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Enter the knowledge content. Be as detailed as possible — this information will be used to ground AI-generated content."
+            rows={8}
+            required
+          />
+          {content.trim().length > MAX_CONTENT_LENGTH * 0.8 && (
+            <p className={`text-xs mt-1 ${isContentOverLimit ? 'text-red-500' : 'text-slate-400'}`}>
+              {content.trim().length.toLocaleString()}/{MAX_CONTENT_LENGTH.toLocaleString()} characters
+            </p>
+          )}
+        </div>
 
         <Input
           label="Source URL (optional)"
@@ -98,7 +134,7 @@ export function KnowledgeEntryForm({
           <Button
             type="submit"
             loading={isLoading}
-            disabled={!title.trim() || !content.trim()}
+            disabled={!title.trim() || !content.trim() || isTitleOverLimit || isContentOverLimit}
           >
             {existingEntry ? 'Update Entry' : 'Add Entry'}
           </Button>

@@ -151,15 +151,18 @@ export const toggleKnowledgeEntry = async (
 export const createBulkKnowledgeEntries = async (
   entries: CreateKnowledgeEntryInput[]
 ): Promise<KnowledgeEntry[]> => {
+  // Validate all entries before inserting any
+  entries.forEach(entry => validateKnowledgeInput(entry));
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
   const rows = entries.map(entry => ({
     brand_id: entry.brand_id,
     category: entry.category,
-    title: entry.title,
-    content: entry.content,
-    source_url: entry.source_url || null,
+    title: entry.title.trim(),
+    content: entry.content.trim(),
+    source_url: entry.source_url?.trim() || null,
     source_type: entry.source_type || 'manual',
     metadata: entry.metadata || {},
     created_by: user.id,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Package, HelpCircle, Swords, Users, BarChart3, FileText } from 'lucide-react';
 import { Button, Input } from '../ui';
 import { useToast } from '../ui/Toast';
@@ -51,6 +51,11 @@ export function KnowledgePanel({ brandId }: KnowledgePanelProps) {
   const updateEntry = useUpdateKnowledgeEntry();
   const deleteEntry = useDeleteKnowledgeEntry();
   const toggleEntry = useToggleKnowledgeEntry();
+
+  // Close edit form when switching categories or brands
+  useEffect(() => {
+    setEditingEntry(undefined);
+  }, [selectedCategory, brandId]);
 
   // Filter entries by search query locally
   const filteredEntries = searchQuery

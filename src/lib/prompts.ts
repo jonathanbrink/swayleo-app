@@ -7,6 +7,7 @@ import type { KnowledgeEntry } from '../types/knowledge';
 // ============================================
 
 export function escapeXml(str: string): string {
+  // Ampersand MUST be escaped first to avoid double-escaping (e.g. &lt; -> &amp;lt;)
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
