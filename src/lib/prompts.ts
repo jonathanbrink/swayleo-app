@@ -3,6 +3,19 @@ import type { EmailType, EmailGenerationRequest } from '../types/email';
 import type { KnowledgeEntry } from '../types/knowledge';
 
 // ============================================
+// XML Escaping Helper
+// ============================================
+
+export function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// ============================================
 // Brand Kit to XML Context
 // ============================================
 
@@ -20,7 +33,7 @@ export function buildKnowledgeBaseContext(entries: KnowledgeEntry[]): string {
   for (const [category, categoryEntries] of Object.entries(grouped)) {
     xml += `\n    <${category}>`;
     for (const entry of categoryEntries) {
-      xml += `\n      <entry title="${entry.title}">${entry.content}</entry>`;
+      xml += `\n      <entry title="${escapeXml(entry.title)}">${escapeXml(entry.content)}</entry>`;
     }
     xml += `\n    </${category}>`;
   }

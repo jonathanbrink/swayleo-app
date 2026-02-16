@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildKnowledgeBaseContext, buildBrandKitContext, buildEmailPrompt } from '../prompts';
+import { escapeXml, buildKnowledgeBaseContext, buildBrandKitContext, buildEmailPrompt } from '../prompts';
 import { mockBrand, mockBrandKit, mockEmailRequest } from '../../test/fixtures';
 import type { KnowledgeEntry } from '../../types/knowledge';
 
@@ -117,6 +117,29 @@ describe('Knowledge Base Prompt Integration', () => {
       expect(result).toContain('Shipping Policy');
       expect(result).toContain('</knowledge_base>');
     });
+
+    it('escapes special XML characters in title and content', () => {
+      const entryWithSpecialChars: KnowledgeEntry = {
+        id: 'kb-special',
+        brand_id: 'brand-123',
+        category: 'product',
+        title: 'Size 10" & 12" <Large>',
+        content: 'Price < $50 & includes "free" <shipping>',
+        source_url: null,
+        source_type: 'manual',
+        metadata: {},
+        is_active: true,
+        created_by: 'user-1',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      };
+      const result = buildKnowledgeBaseContext([entryWithSpecialChars]);
+      expect(result).toContain('title="Size 10&quot; &amp; 12&quot; &lt;Large&gt;"');
+      expect(result).toContain('Price &lt; $50 &amp; includes &quot;free&quot; &lt;shipping&gt;');
+      // Should NOT contain raw special characters in the entry
+      expect(result).not.toContain('title="Size 10"');
+      expect(result).not.toContain('<Large>');
+    });
   });
 
   describe('buildBrandKitContext() with knowledge entries', () => {
@@ -171,6 +194,40 @@ describe('Knowledge Base Prompt Integration', () => {
       expect(result).toContain('<email_type_instructions>');
       expect(result).toContain('<critical_rules>');
       expect(result).toContain('<output_format>');
+    });
+  });
+
+  describe('escapeXml()', () => {
+    it('escapes ampersands', () => {
+      expect(escapeXml('A & B')).toBe('A &amp; B');
+    });
+
+    it('escapes less-than signs', () => {
+      expect(escapeXml('price < 50')).toBe('price &lt; 50');
+    });
+
+    it('escapes greater-than signs', () => {
+      expect(escapeXml('price > 50')).toBe('price &gt; 50');
+    });
+
+    it('escapes double quotes', () => {
+      expect(escapeXml('say "hello"')).toBe('say &quot;hello&quot;');
+    });
+
+    it('escapes single quotes', () => {
+      expect(escapeXml("it's")).toBe('it&apos;s');
+    });
+
+    it('escapes all special characters together', () => {
+      expect(escapeXml('<div class="x">&\'test\'')).toBe('&lt;div class=&quot;x&quot;&gt;&amp;&apos;test&apos;');
+    });
+
+    it('returns empty string for empty input', () => {
+      expect(escapeXml('')).toBe('');
+    });
+
+    it('does not modify strings without special characters', () => {
+      expect(escapeXml('Hello World 123')).toBe('Hello World 123');
     });
   });
 });

@@ -178,6 +178,7 @@ export function KnowledgePanel({ brandId }: KnowledgePanelProps) {
           onEdit={(entry) => setEditingEntry(entry)}
           onDelete={handleDelete}
           onToggle={handleToggle}
+          isMutating={deleteEntry.isPending || toggleEntry.isPending}
         />
       )}
 

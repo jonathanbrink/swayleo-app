@@ -6,7 +6,7 @@ interface KnowledgeListProps {
   onEdit: (entry: KnowledgeEntry) => void;
   onDelete: (id: string) => void;
   onToggle: (id: string, isActive: boolean) => void;
-  isDeleting?: boolean;
+  isMutating?: boolean;
 }
 
 const categoryIcons: Record<KnowledgeCategory, React.ReactNode> = {
@@ -27,7 +27,7 @@ const categoryColors: Record<KnowledgeCategory, string> = {
   general: 'bg-slate-50 text-slate-700',
 };
 
-export function KnowledgeList({ entries, onEdit, onDelete, onToggle }: KnowledgeListProps) {
+export function KnowledgeList({ entries, onEdit, onDelete, onToggle, isMutating }: KnowledgeListProps) {
   if (entries.length === 0) {
     return (
       <div className="text-center py-12">
@@ -84,8 +84,10 @@ export function KnowledgeList({ entries, onEdit, onDelete, onToggle }: Knowledge
                   e.stopPropagation();
                   onToggle(entry.id, !entry.is_active);
                 }}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                disabled={isMutating}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={entry.is_active ? 'Disable' : 'Enable'}
+                aria-label={entry.is_active ? `Disable ${entry.title}` : `Enable ${entry.title}`}
               >
                 {entry.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </button>
@@ -96,8 +98,10 @@ export function KnowledgeList({ entries, onEdit, onDelete, onToggle }: Knowledge
                     onDelete(entry.id);
                   }
                 }}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                disabled={isMutating}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Delete"
+                aria-label={`Delete ${entry.title}`}
               >
                 <Trash2 className="w-4 h-4" />
               </button>

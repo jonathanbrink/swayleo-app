@@ -7,6 +7,34 @@ import type {
 } from '../types/knowledge';
 
 // ============================================
+// Input Validation
+// ============================================
+
+const MAX_TITLE_LENGTH = 200;
+const MAX_CONTENT_LENGTH = 50000;
+const MAX_URL_LENGTH = 2000;
+
+function validateKnowledgeInput(input: { title?: string; content?: string; source_url?: string | null }) {
+  if (input.title !== undefined) {
+    const trimmed = input.title.trim();
+    if (!trimmed) throw new Error('Title is required');
+    if (trimmed.length > MAX_TITLE_LENGTH) throw new Error(`Title must be ${MAX_TITLE_LENGTH} characters or less`);
+  }
+  if (input.content !== undefined) {
+    const trimmed = input.content.trim();
+    if (!trimmed) throw new Error('Content is required');
+    if (trimmed.length > MAX_CONTENT_LENGTH) throw new Error(`Content must be ${MAX_CONTENT_LENGTH} characters or less`);
+  }
+  if (input.source_url) {
+    const trimmed = input.source_url.trim();
+    if (trimmed.length > MAX_URL_LENGTH) throw new Error(`URL must be ${MAX_URL_LENGTH} characters or less`);
+    if (trimmed && !trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+      throw new Error('URL must start with http:// or https://');
+    }
+  }
+}
+
+// ============================================
 // Knowledge Base CRUD Operations
 // ============================================
 
@@ -51,6 +79,8 @@ export const getKnowledgeEntry = async (id: string): Promise<KnowledgeEntry | nu
 export const createKnowledgeEntry = async (
   input: CreateKnowledgeEntryInput
 ): Promise<KnowledgeEntry> => {
+  validateKnowledgeInput(input);
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -59,9 +89,9 @@ export const createKnowledgeEntry = async (
     .insert({
       brand_id: input.brand_id,
       category: input.category,
-      title: input.title,
-      content: input.content,
-      source_url: input.source_url || null,
+      title: input.title.trim(),
+      content: input.content.trim(),
+      source_url: input.source_url?.trim() || null,
       source_type: input.source_type || 'manual',
       metadata: input.metadata || {},
       created_by: user.id,
@@ -77,12 +107,19 @@ export const updateKnowledgeEntry = async (
   id: string,
   input: UpdateKnowledgeEntryInput
 ): Promise<KnowledgeEntry> => {
+  validateKnowledgeInput(input);
+
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (input.title !== undefined) updateData.title = input.title.trim();
+  if (input.content !== undefined) updateData.content = input.content.trim();
+  if (input.source_url !== undefined) updateData.source_url = input.source_url?.trim() || null;
+  if (input.category !== undefined) updateData.category = input.category;
+  if (input.metadata !== undefined) updateData.metadata = input.metadata;
+  if (input.is_active !== undefined) updateData.is_active = input.is_active;
+
   const { data, error } = await supabase
     .from('knowledge_entries')
-    .update({
-      ...input,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', id)
     .select('*')
     .single();
@@ -145,13 +182,16 @@ export const searchKnowledgeEntries = async (
   brandId: string,
   searchQuery: string
 ): Promise<KnowledgeEntry[]> => {
-  // Basic text search on title and content
+  // Sanitize search input: escape characters that could break PostgREST filter syntax
+  const sanitized = searchQuery.replace(/[%_\\(),."']/g, '');
+  if (!sanitized.trim()) return [];
+
   const { data, error } = await supabase
     .from('knowledge_entries')
     .select('*')
     .eq('brand_id', brandId)
     .eq('is_active', true)
-    .or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%`)
+    .or(`title.ilike.%${sanitized}%,content.ilike.%${sanitized}%`)
     .order('updated_at', { ascending: false });
 
   if (error) throw error;

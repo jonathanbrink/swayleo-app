@@ -106,6 +106,7 @@ Comprehensive test plan for the Swayleo brand management platform.
 - [x] `buildKnowledgeBaseContext()` includes entry titles and content
 - [x] `buildKnowledgeBaseContext()` puts multiple entries in same category group
 - [x] `buildKnowledgeBaseContext()` handles single entry
+- [x] `buildKnowledgeBaseContext()` escapes special XML characters in title and content
 - [x] `buildBrandKitContext()` includes knowledge base XML when entries provided
 - [x] `buildBrandKitContext()` does not include KB XML when no entries
 - [x] `buildBrandKitContext()` does not include KB XML when empty array
@@ -114,7 +115,17 @@ Comprehensive test plan for the Swayleo brand management platform.
 - [x] `buildEmailPrompt()` works without knowledge entries (backward compatible)
 - [x] `buildEmailPrompt()` includes all prompt sections alongside knowledge
 
-### 2.4 `lib/email.ts`
+### 2.4 `lib/prompts.ts` — XML Escaping
+- [x] `escapeXml()` escapes ampersands
+- [x] `escapeXml()` escapes less-than signs
+- [x] `escapeXml()` escapes greater-than signs
+- [x] `escapeXml()` escapes double quotes
+- [x] `escapeXml()` escapes single quotes
+- [x] `escapeXml()` escapes all special characters together
+- [x] `escapeXml()` returns empty string for empty input
+- [x] `escapeXml()` does not modify strings without special characters
+
+### 2.5 `lib/email.ts`
 - [x] `exportEmailAsText()` formats email with all sections
 - [x] `exportEmailAsText()` shows '(none)' for missing preview text
 - [x] `exportEmailAsHTML()` generates valid HTML
@@ -183,13 +194,14 @@ Comprehensive test plan for the Swayleo brand management platform.
 |------|-------|
 | Type helpers & constants | 42 |
 | Prompt builder | 32 |
-| KB prompt integration | 14 |
+| KB prompt integration | 15 |
+| XML escaping (escapeXml) | 8 |
 | ESP export | 30 |
 | Email utils | 11 |
 | UI components | 39 |
 | Brand/Email components | 3 |
 | Knowledge Base types | 12 |
 | Integration | 4+ |
-| **Total** | **205** |
+| **Total** | **214** |
 
-*Last verified: Feb 14, 2026 — 14 test files, 205 tests, 0 failures*
+*Last verified: Feb 16, 2026 — 14 test files, 214 tests, 0 failures*
