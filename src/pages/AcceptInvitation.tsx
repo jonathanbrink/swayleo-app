@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Building2, AlertCircle, Check, Loader2 } from 'lucide-react';
+import { Building2, AlertCircle, Loader2 } from 'lucide-react';
 import { Button, useToast } from '../components/ui';
 import { useInvitationByToken, useAcceptInvitation, useAuth } from '../hooks';
 
@@ -12,8 +12,8 @@ export function AcceptInvitation() {
 
   const { data: invitation, isLoading, error } = useInvitationByToken(token || '');
   const acceptInvite = useAcceptInvitation();
-  const [accepted, _setAccepted] = useState(false);
   const [autoAccepting, setAutoAccepting] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
 
   // Check if email matches
   const emailMatches = Boolean(user?.email && invitation?.email && user.email.toLowerCase() === invitation.email.toLowerCase());
@@ -22,7 +22,7 @@ export function AcceptInvitation() {
   // Auto-accept if logged in and email matches
   useEffect(() => {
     const autoAccept = async () => {
-      if (isAuthenticated && emailMatches && invitation && !accepted && !autoAccepting) {
+      if (isAuthenticated && emailMatches && invitation && !autoAccepting && !acceptError) {
         setAutoAccepting(true);
         try {
           await acceptInvite.mutateAsync(token!);
@@ -30,18 +30,19 @@ export function AcceptInvitation() {
           navigate('/');
         } catch (err) {
           setAutoAccepting(false);
+          const message = err instanceof Error ? err.message : 'Failed to accept invitation';
+          setAcceptError(message);
           console.error('Failed to auto-accept:', err);
         }
       }
     };
-    
+
     autoAccept();
-  }, [isAuthenticated, emailMatches, invitation, accepted, autoAccepting]);
+  }, [isAuthenticated, emailMatches, invitation, autoAccepting, acceptError]);
 
   // Redirect to auth if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated && invitation) {
-      sessionStorage.setItem('pendingInviteToken', token || '');
       navigate(`/auth?redirect=/invite/${token}`);
     }
   }, [isLoading, isAuthenticated, invitation, token, navigate]);
@@ -77,26 +78,7 @@ export function AcceptInvitation() {
     );
   }
 
-  if (accepted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
-            <Check className="w-8 h-8 text-emerald-500" />
-          </div>
-          <h1 className="font-display font-semibold text-xl text-slate-800 mb-2">
-            Welcome to {invitation.organization?.name}!
-          </h1>
-          <p className="text-slate-500 mb-6">
-            You're now a member. Redirecting to dashboard...
-          </p>
-          <Loader2 className="w-6 h-6 text-sway-500 animate-spin mx-auto" />
-        </div>
-      </div>
-    );
-  }
-
-  // Only show this page if there's an email mismatch (user logged in with wrong email)
+  // Only show this page if there's an email mismatch or an error
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-sway-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-8 max-w-md w-full">
@@ -129,6 +111,19 @@ export function AcceptInvitation() {
           </div>
         </div>
 
+        {/* Accept Error */}
+        {acceptError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+            <div className="flex gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium text-red-800">Failed to Accept Invitation</p>
+                <p className="text-red-700 mt-1">{acceptError}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Email Mismatch Warning */}
         {emailMismatch && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
@@ -149,6 +144,17 @@ export function AcceptInvitation() {
 
         {/* Actions */}
         <div className="space-y-3">
+          {acceptError && emailMatches && (
+            <Button
+              className="w-full"
+              onClick={() => {
+                setAcceptError(null);
+                setAutoAccepting(false);
+              }}
+            >
+              Try Again
+            </Button>
+          )}
           <Link to="/">
             <Button variant="secondary" className="w-full">
               Go to Dashboard

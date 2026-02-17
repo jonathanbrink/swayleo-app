@@ -24,11 +24,10 @@ export function AuthPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Pre-fill email from invitation and default to sign-up mode
+  // Pre-fill email from invitation (let user choose sign-in or sign-up)
   useEffect(() => {
     if (invitation?.email) {
       setEmail(invitation.email);
-      setIsSignUp(true);
     }
   }, [invitation]);
 
@@ -41,13 +40,15 @@ export function AuthPage() {
           showToast(`Welcome to ${invitation.organization?.name || 'the team'}!`);
           navigate('/');
         } catch (err) {
-          // If acceptance fails, still go to dashboard
           console.error('Failed to auto-accept invite:', err);
-          navigate('/');
+          const message = err instanceof Error ? err.message : 'Failed to accept invitation';
+          showToast(message, 'error');
+          // Redirect to the invite page so user sees the error state
+          navigate(`/invite/${inviteToken}`);
         }
       }
     };
-    
+
     autoAcceptInvite();
   }, [isAuthenticated, inviteToken, invitation]);
 
@@ -126,10 +127,10 @@ export function AuthPage() {
             <span className="font-display font-semibold text-2xl text-slate-800">Swayleo</span>
           </div>
           <p className="text-slate-500">
-            {invitation 
-              ? `Create your account to join ${invitation.organization?.name || 'the team'}`
-              : isSignUp 
-                ? 'Create your account' 
+            {invitation
+              ? `Sign in or create an account to join ${invitation.organization?.name || 'the team'}`
+              : isSignUp
+                ? 'Create your account'
                 : 'Sign in to your account'}
           </p>
         </div>
@@ -162,7 +163,6 @@ export function AuthPage() {
               }}
               error={errors.email}
               required
-              disabled={!!invitation}
             />
 
             <Input
@@ -183,19 +183,17 @@ export function AuthPage() {
             </Button>
           </form>
 
-          {!invitation && (
-            <div className="mt-6 text-center">
-              <button
-                onClick={() => {
-                  setIsSignUp(!isSignUp);
-                  setErrors({});
-                }}
-                className="text-sm text-slate-500 hover:text-sway-600 transition-colors"
-              >
-                {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-              </button>
-            </div>
-          )}
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setErrors({});
+              }}
+              className="text-sm text-slate-500 hover:text-sway-600 transition-colors"
+            >
+              {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+            </button>
+          </div>
         </div>
 
         {/* Demo Note */}

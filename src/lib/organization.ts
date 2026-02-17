@@ -128,17 +128,17 @@ export const getOrganizationMembers = async (orgId: string): Promise<Organizatio
   if (error) throw error;
   if (!members?.length) return [];
 
-  // Get profiles for these members
+  // Get profiles for these members (includes email column)
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, full_name')
+    .select('id, full_name, email')
     .in('id', members.map(m => m.user_id));
 
   const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
-  // Get current user for their email
+  // Get current user for their email (fallback)
   const { data: { user: currentUser } } = await supabase.auth.getUser();
-  
+
   return members.map(member => {
     const profile = profileMap.get(member.user_id);
     return {
@@ -146,8 +146,7 @@ export const getOrganizationMembers = async (orgId: string): Promise<Organizatio
       user: {
         id: member.user_id,
         full_name: profile?.full_name || null,
-        // Only show email for current user (we can get it from auth)
-        email: member.user_id === currentUser?.id ? currentUser?.email ?? null : null
+        email: profile?.email || (member.user_id === currentUser?.id ? currentUser?.email ?? null : null),
       }
     };
   });
@@ -282,7 +281,7 @@ export const createInvitation = async (
   const { data: existingProfile } = await supabase
     .from('profiles')
     .select('id')
-    .eq('email', input.email.toLowerCase())
+    .ilike('email', input.email.toLowerCase())
     .single();
 
   if (existingProfile) {
